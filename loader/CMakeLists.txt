@@ -261,20 +261,24 @@ else() # i.e.: Linux
     endif()
 endif()
 
+## vulkan_on_hra: one place to set the aloader project name
+set(LOADER_PROJECT_NAME "hra_vk_loader")
+
 if(WIN32)
     add_library(loader-opt STATIC ${OPT_LOADER_SRCS})
     target_link_libraries(loader-opt PUBLIC loader_specific_options)
     add_dependencies(loader-opt loader_asm_gen_files)
     set_target_properties(loader-opt PROPERTIES CMAKE_C_FLAGS_DEBUG "${MODIFIED_C_FLAGS_DEBUG}")
 
-    add_library(vulkan
-                SHARED
+    ## vulkan_on_hra: use as a static library
+    add_library(${LOADER_PROJECT_NAME}
+                STATIC
                 ${NORMAL_LOADER_SRCS}
                 $<TARGET_OBJECTS:loader-unknown-chain>
                 ${CMAKE_CURRENT_SOURCE_DIR}/vulkan-1.def
                 ${CMAKE_CURRENT_LIST_DIR}/loader.rc)
 
-    target_link_libraries(vulkan PRIVATE loader_specific_options loader-opt)
+    target_link_libraries(${LOADER_PROJECT_NAME} PRIVATE loader_specific_options loader-opt)
 
     if (UPDATE_DEPS)
         add_dependencies(vulkan vl_update_deps)
@@ -283,9 +287,9 @@ if(WIN32)
     # when adding the suffix the import and runtime library names must be consistent
     # mingw: libvulkan-1.dll.a / vulkan-1.dll
     # msvc: vulkan-1.lib / vulkan-1.dll
-    set_target_properties(vulkan
+    set_target_properties(${LOADER_PROJECT_NAME}
                           PROPERTIES
-                          OUTPUT_NAME vulkan-1)
+                          OUTPUT_NAME ${LOADER_PROJECT_NAME})
     if(MINGW)
         # generate the same DLL with mingw
         set_target_properties(vulkan
@@ -297,25 +301,26 @@ if(WIN32)
         target_link_libraries(vulkan PRIVATE OneCoreUAP.lib LIBCMT.LIB LIBCMTD.LIB LIBVCRUNTIME.LIB LIBUCRT.LIB)
         set_target_properties(vulkan PROPERTIES LINK_FLAGS "/NODEFAULTLIB")
     else()
-       target_link_libraries(vulkan PRIVATE cfgmgr32)
+       target_link_libraries(${LOADER_PROJECT_NAME} PRIVATE cfgmgr32)
     endif()
 
-    add_dependencies(vulkan loader_asm_gen_files)
+    add_dependencies(${LOADER_PROJECT_NAME} loader_asm_gen_files)
 
 else()
     if(APPLE AND BUILD_STATIC_LOADER)
         add_library(vulkan STATIC ${NORMAL_LOADER_SRCS} ${OPT_LOADER_SRCS})
         target_compile_definitions(vulkan PRIVATE BUILD_STATIC_LOADER)
     else()
-        add_library(vulkan SHARED ${NORMAL_LOADER_SRCS} ${OPT_LOADER_SRCS})
+        ## vulkan_on_hra: use as a static library
+        add_library(${LOADER_PROJECT_NAME} STATIC ${NORMAL_LOADER_SRCS} ${OPT_LOADER_SRCS})
     endif()
-    add_dependencies(vulkan loader_asm_gen_files)
-    set_target_properties(vulkan
+    add_dependencies(${LOADER_PROJECT_NAME} loader_asm_gen_files)
+    set_target_properties(${LOADER_PROJECT_NAME}
                           PROPERTIES SOVERSION "1"
                           VERSION ${LOADER_GENERATED_HEADER_VERSION})
-    target_link_libraries(vulkan PRIVATE ${CMAKE_DL_LIBS} m)
+    target_link_libraries(${LOADER_PROJECT_NAME} PRIVATE ${CMAKE_DL_LIBS} m)
     if (NOT ANDROID)
-        target_link_libraries(vulkan PRIVATE Threads::Threads)
+        target_link_libraries(${LOADER_PROJECT_NAME} PRIVATE Threads::Threads)
     endif()
 
     if(APPLE)
@@ -365,9 +370,9 @@ else()
 endif()
 
 # common attributes of the vulkan library
-target_link_libraries(vulkan PRIVATE loader_specific_options)
+target_link_libraries(${LOADER_PROJECT_NAME} PRIVATE loader_specific_options)
 
-set_target_properties(vulkan ${LOADER_STANDARD_C_PROPERTIES})
+set_target_properties(${LOADER_PROJECT_NAME} ${LOADER_STANDARD_C_PROPERTIES})
 if (TARGET asm_offset)
     set_target_properties(asm_offset ${LOADER_STANDARD_C_PROPERTIES})
 endif()
@@ -412,10 +417,11 @@ if(PKG_CONFIG_FOUND)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/vulkan.pc" DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
 endif()
 
-target_link_libraries(vulkan PRIVATE Vulkan::Headers)
-add_library(Vulkan::Vulkan ALIAS vulkan)
+target_link_libraries(${LOADER_PROJECT_NAME} PRIVATE Vulkan::Headers)
+## vulkan_on_hra: do not create alias to avoid conflicts
+## add_library(Vulkan::Vulkan ALIAS ${LOADER_PROJECT_NAME})
 
-install(TARGETS vulkan
+install(TARGETS ${LOADER_PROJECT_NAME}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

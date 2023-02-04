@@ -3258,9 +3258,14 @@ VkResult loader_get_data_files(const struct loader_instance *inst, enum loader_d
     out_files->alloc_count = 0;
     out_files->filename_list = NULL;
 
-    res = read_data_files_in_search_paths(inst, manifest_type, path_override, &override_active, out_files);
-    if (VK_SUCCESS != res) {
-        goto out;
+    // vulkan_on_hra: do not process driver related manifest files to avoid self loading 
+    // probably break driver loading on linux/macos. On windows is ok for now
+    // should be better implement some self checking
+    if (manifest_type != LOADER_DATA_FILE_MANIFEST_DRIVER) {
+        res = read_data_files_in_search_paths(inst, manifest_type, path_override, &override_active, out_files);
+        if (VK_SUCCESS != res) {
+            goto out;
+        }
     }
 
 #ifdef _WIN32
